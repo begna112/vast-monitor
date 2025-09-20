@@ -1,0 +1,52 @@
+{
+  "api_key": "YOUR_VAST_API_KEY",
+  "machine_ids": [
+    12345,
+    67890
+  ],
+  "apprise": {
+    "targets": [
+      {
+        "name": "discord-example",
+        "service": "discord",
+        "enabled": true,
+        "url": "discord://YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+        "mention": "OPTIONAL_USER_ID",
+        "events": [
+          "system",
+          "startup",
+          "rental_start",
+          "rental_end",
+          "rental_pause",
+          "rental_resume",
+          "error",
+          "recovery"
+        ]
+      },
+      {
+        "name": "email-example",
+        "service": "email",
+        "enabled": true,
+        "url": "mailtos://SMTP_USER:SMTP_PASSWORD@smtp.example.com:587/?from=monitor@example.com&to=alerts@example.com",
+        "events": [
+          "system",
+          "rental_start",
+          "rental_end",
+          "rental_pause",
+          "rental_resume",
+          "error",
+          "recovery"
+        ]
+      }
+    ]
+  },
+  "log_file": "vast_monitor.log",
+  "check_frequency": 60,
+  "debug": false,
+  "notify": {
+    "on_startup_existing": true,
+    "on_start": true,
+    "on_shutdown": true,
+    "error_ping_interval_minutes": 15
+  }
+}

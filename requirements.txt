@@ -1,0 +1,4 @@
+apprise>=1.4
+pydantic>=1.10,<3.0
+tenacity>=8.0
+vastai-sdk>=0.1.19

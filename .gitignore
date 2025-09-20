@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+
+# Runtime artifacts
+*.log
+*.log.*
+machine_snapshots/*
+!machine_snapshots/.gitkeep
+rental_logs/*
+!rental_logs/.gitkeep
+
+# Local overrides
+config.local.json
+.env

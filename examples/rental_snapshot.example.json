@@ -1,0 +1,63 @@
+{
+  "67890": {
+    "gpus": {},
+    "gpu_occupancy": "x x x x x x x x ",
+    "sessions": {},
+    "next_session_seq": 33,
+    "num_gpus": 8
+  },
+  "12345": {
+    "gpus": {
+      "0": "m12345-0001",
+      "1": "m12345-0001",
+      "2": "m12345-0001",
+      "3": "m12345-0001"
+    },
+    "gpu_occupancy": "D D D D ",
+    "sessions": {
+      "m12345-0001": {
+        "client_id": "m12345-0001",
+        "status": "running",
+        "gpus": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "start_time": "2025-08-20T08:18:54.967146+00:00",
+        "last_state_change": "2025-08-20T08:18:54.967146+00:00",
+        "storage_gb": 32.0,
+        "gpu_contracted_rate": 0.45100000000000007,
+        "storage_contracted_rate": 0.30000000000000004,
+        "gpu_type": "D",
+        "gpu_segments": [
+          {
+            "start": "2025-08-20T08:18:54.967146+00:00",
+            "end": "2025-08-26T07:27:40.967146+00:00",
+            "rate": 0.42500000000000004,
+            "gpu_count": 4
+          },
+          {
+            "start": "2025-08-26T07:42:40.967146+00:00",
+            "end": null,
+            "rate": 0.45100000000000007,
+            "gpu_count": 4
+          }
+        ],
+        "storage_segments": [
+          {
+            "start": "2025-08-20T08:18:54.967146+00:00",
+            "end": null,
+            "rate_per_gb_month": 0.30000000000000004
+          }
+        ],
+        "client_end_date": null,
+        "end_time": null,
+        "rental_duration": null,
+        "estimated_earnings": null
+      }
+    },
+    "next_session_seq": 2,
+    "num_gpus": 4
+  }
+}
