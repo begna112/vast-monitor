@@ -2,6 +2,22 @@
 
 Vast Monitor tracks selected Vast.ai machines, watches rental activity, and delivers real-time notifications when sessions start, pause, resume, end, or when machines report errors. It keeps a lightweight local snapshot of machine state for continuity and can notify multiple channels in parallel via [Apprise](https://github.com/caronc/apprise).
 
+## Installing the Monitor
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/<your-username>/vast-monitor.git
+   cd vast-monitor
+   ```
+2. Copy the example config and edit it (see [Configuration](#configuration)).
+3. Install dependencies (`pip install -r requirements.txt`) either in a virtualenv or globally (see [Requirements](#requirements)).
+4. Run the monitor with your config:
+   ```bash
+   python vast_monitor.py --config /path/to/config.json
+   ```
+
+The project is designed to run directly from the cloned folder—no packaging step is required.
+
 ## Requirements
 
 - Python 3.10 or newer
