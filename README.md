@@ -13,7 +13,7 @@ Install Python dependencies with your preferred workflow:
 ### Using a virtual environment (recommended)
 ```bash
 python -m venv .venv
-. .venv/bin/activate  # or Scriptsctivate on Windows
+. .venv/bin/activate  # or Scripts/activate on Windows
 pip install -r requirements.txt
 ```
 
@@ -55,18 +55,17 @@ If your config lives at `~/.config/vast-monitor/config.json`, runtime files appe
 - `rental_logs/` – archived session payloads
 - `vast_monitor.log` – rolling log file (rotated nightly)
 
-## Adding a Custom Notification Service
+## Supported Notification Services
 
-1. Create a new module under `notifications/services/<your_service>/service.py` that subclasses `BaseService` and implements the formatter methods used by the monitor (`format_system_message`, `format_event_start`, etc.).
-2. Register the service in `notifications/registry.py` so the dispatcher can resolve it by URL scheme.
-3. Add a target in your config with `service` set to the new scheme and point `url` at an Apprise endpoint that knows how to deliver it.
-4. Send a test rental event and submit a pull request once everything formats cleanly.
+Refer to the [Apprise Documentation](https://github.com/caronc/apprise/wiki) as needed for service configuration.
 
-## Sample Data
+| Service | Scheme(s) | Description |
+| --- | --- | --- |
+| [Discord](https://github.com/caronc/apprise/wiki/Notify_discord) | `discord://` | Rich markdown formatting with Discord timestamps; supports per-target mentions and full rental summaries. Utilizes Discord Webhooks. |
+| [Email](https://github.com/caronc/apprise/wiki/Notify_email) | `mailtos://`, `mailto://` | Plain-text emails rendered in `<pre>` blocks so all sections align; converts Discord timestamps to human-readable text. |
+| Default | any other scheme | Fallback plain-text formatter used for services without custom handling. Does nothing. Just here for a baseline for future service handlers. |
 
-The `examples/` directory contains sample config and snapshot files that demonstrate the expected structure without exposing real machine details. When running the monitor, always use your own copies outside the repository to avoid overwriting tracked files.
-
-## Event Types
+## Notification Event Types
 
 Each notification target can subscribe to specific events via the `events` list. Supported values include:
 
@@ -81,7 +80,14 @@ Each notification target can subscribe to specific events via the `events` list.
 
 Use `"all"` (or omit the list) to receive every event.
 
-## Running as a Service
+## Adding a Custom Notification Service
+
+1. Create a new module under `notifications/services/<your_service>/service.py` that subclasses `BaseService` and implements the formatter methods used by the monitor (`format_system_message`, `format_event_start`, etc.).
+2. Register the service in `notifications/registry.py` so the dispatcher can resolve it by URL scheme.
+3. Add a target in your config with `service` set to the new scheme and point `url` at an Apprise endpoint that knows how to deliver it.
+4. Send a test rental event and submit a pull request once everything formats cleanly.
+
+## Running as a Service (Untested)
 
 ### Linux (systemd)
 1. Install dependencies in a virtualenv or system-wide.
@@ -129,3 +135,6 @@ Then reload supervisor.
    ```
 2. Start the service with `nssm start VastMonitor`.
 
+## Sample Data
+
+The `examples/` directory contains sample config and snapshot files that demonstrate the expected structure without exposing real machine details. When running the monitor, always use your own copies outside the repository to avoid overwriting tracked files.
