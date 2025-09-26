@@ -25,6 +25,7 @@ def seed_sessions_for_current_occupancy(
     """Create placeholder sessions for occupied GPUs that are not yet tracked."""
     snapshot = load_rental_snapshot(paths, machine.machine_id)
     snapshot.setdefault("gpus", {})
+
     snapshot.setdefault("sessions", {})
     snapshot.setdefault("next_session_seq", 1)
 
@@ -91,6 +92,34 @@ def process_rental_changes(
     snapshot.setdefault("sessions", {})
     snapshot.setdefault("next_session_seq", 1)
     snapshot.pop("clients", None)
+
+    def _as_int(value: object) -> int:
+        try:
+            return int(value or 0)
+        except Exception:
+            return 0
+
+    old_resident = _as_int(old.current_rentals_resident)
+    new_resident = _as_int(new.current_rentals_resident)
+    old_resident_on_demand = _as_int(old.current_rentals_on_demand)
+    new_resident_on_demand = _as_int(new.current_rentals_on_demand)
+    old_running = _as_int(old.current_rentals_running)
+    new_running = _as_int(new.current_rentals_running)
+    old_running_on_demand = _as_int(old.current_rentals_running_on_demand)
+    new_running_on_demand = _as_int(new.current_rentals_running_on_demand)
+
+    # Track how many sessions newly enter the stored state this cycle
+    old_stored_on_demand = max(old_resident_on_demand - old_running_on_demand, 0)
+    new_stored_on_demand = max(new_resident_on_demand - new_running_on_demand, 0)
+    pause_budget_on_demand = max(new_stored_on_demand - old_stored_on_demand, 0)
+
+    old_interruptible_total = max(old_resident - old_resident_on_demand, 0)
+    new_interruptible_total = max(new_resident - new_resident_on_demand, 0)
+    old_running_interruptible = max(old_running - old_running_on_demand, 0)
+    new_running_interruptible = max(new_running - new_running_on_demand, 0)
+    old_stored_interruptible = max(old_interruptible_total - old_running_interruptible, 0)
+    new_stored_interruptible = max(new_interruptible_total - new_running_interruptible, 0)
+    pause_budget_interruptible = max(new_stored_interruptible - old_stored_interruptible, 0)
 
     old_occ = snapshot.get("gpu_occupancy", ("x " * new.num_gpus)).split()
     new_occ = new.gpu_occupancy.split()
@@ -160,7 +189,22 @@ def process_rental_changes(
         else:
             disk_delta = new_disk - old_disk
             tol = 1.0
-            if abs(disk_delta) < tol:
+            storage_val = float(session.storage_gb or 0.0)
+            is_on_demand = session.gpu_type == "D"
+            budget_type: Optional[str] = None
+            if is_on_demand and pause_budget_on_demand > 0:
+                budget_type = "on_demand"
+            elif not is_on_demand and pause_budget_interruptible > 0:
+                budget_type = "interruptible"
+
+            should_pause = budget_type is not None and abs(disk_delta) < tol
+            standard_end = abs(disk_delta + storage_val) < tol
+
+            if should_pause:
+                if budget_type == "on_demand":
+                    pause_budget_on_demand -= 1
+                else:
+                    pause_budget_interruptible -= 1
                 session.close_gpu_segment()
                 session.status = "stored"
                 snapshot["sessions"][sid] = session.model_dump()
@@ -178,7 +222,13 @@ def process_rental_changes(
                         session=session.model_dump(),
                         snapshot=snapshot,
                     )
-            elif abs(disk_delta + session.storage_gb) < tol:
+            else:
+                if not standard_end:
+                    logger.warning(
+                        "Ambiguous disk change %.2f GB for session %s; treating as ended.",
+                        disk_delta,
+                        sid,
+                    )
                 session.finalize_end()
                 dur, gpu_total, storage_total, total = session.totals(session.end_time)
                 sdict = session.model_dump()
@@ -195,15 +245,6 @@ def process_rental_changes(
                         session=sdict,
                         snapshot=snapshot,
                     )
-            else:
-                session.close_gpu_segment()
-                session.status = "stored"
-                snapshot["sessions"][sid] = session.model_dump()
-                logger.warning(
-                    "Ambiguous disk change %s GB for session %s; treating as paused.",
-                    disk_delta,
-                    sid,
-                )
 
     group_map: Dict[tuple, list[int]] = {}
     for idx in started_indices:

@@ -90,7 +90,16 @@ def start_monitoring(
             else:
                 snap = full_data.get(key, {})
                 gmap = snap.get("gpus") if isinstance(snap, dict) else None
-                if not gmap and any(token != "x" for token in machine.gpu_occupancy.split()):
+                sessions = snap.get("sessions") if isinstance(snap, dict) else None
+                has_stored_sessions = any(
+                    isinstance(sdata, dict) and sdata.get("status") == "stored"
+                    for sdata in (sessions or {}).values()
+                )
+                if (
+                    not gmap
+                    and not has_stored_sessions
+                    and any(token != "x" for token in machine.gpu_occupancy.split())
+                ):
                     seed_sessions_for_current_occupancy(machine, paths=paths, logger=logger)
 
         if config.notify.on_startup_existing and notifier is not None:
@@ -116,6 +125,7 @@ def start_monitoring(
                     sessions = snapshot.get("sessions", {}) if isinstance(snapshot, dict) else {}
                     for sid, session in sessions.items():
                         if session.get("end_time") is None:
+                            status = (session.get("status") or "running").lower()
                             rental_type = session.get("gpu_type") or session.get("type", "?")
                             rate = 0.0
                             try:
@@ -128,14 +138,22 @@ def start_monitoring(
                             except Exception:
                                 rate = float(session.get("gpu_contracted_rate", 0.0) or 0.0)
                             gpus = session.get("gpus", [])
-                            logger.info(
-                                "Detected ongoing rental at startup: machine %s, session %s, type %s, rate %s, gpus %s",
-                                mid,
-                                sid,
-                                rental_type,
-                                rate,
-                                gpus,
-                            )
+                            if status == "stored":
+                                logger.info(
+                                    "Detected stored session at startup (inactive): machine %s, session %s, stored gpus %s",
+                                    mid,
+                                    sid,
+                                    gpus,
+                                )
+                            else:
+                                logger.info(
+                                    "Detected ongoing rental at startup: machine %s, session %s, type %s, rate %s, gpus %s",
+                                    mid,
+                                    sid,
+                                    rental_type,
+                                    rate,
+                                    gpus,
+                                )
                     machine_obj = next((m for m in machines if m.machine_id == mid), None)
                     err_desc = getattr(machine_obj, "error_description", None) if machine_obj else None
                     if err_desc:
@@ -185,7 +203,16 @@ def start_monitoring(
                             else:
                                 snap = full_data.get(key, {})
                                 gmap = snap.get("gpus") if isinstance(snap, dict) else None
-                                if not gmap and any(token != "x" for token in new.gpu_occupancy.split()):
+                                sessions = snap.get("sessions") if isinstance(snap, dict) else None
+                                has_stored_sessions = any(
+                                    isinstance(sdata, dict) and sdata.get("status") == "stored"
+                                    for sdata in (sessions or {}).values()
+                                )
+                                if (
+                                    not gmap
+                                    and not has_stored_sessions
+                                    and any(token != "x" for token in new.gpu_occupancy.split())
+                                ):
                                     seed_sessions_for_current_occupancy(new, paths=paths, logger=logger)
                         except Exception as exc_seed:
                             logger.exception(
@@ -223,7 +250,18 @@ def start_monitoring(
                             logger.debug("Old: %s", json.dumps(before, indent=2))
                             logger.debug("New: %s", json.dumps(after, indent=2))
 
-                        if any(field in changed_fields for field in ("clients", "gpu_occupancy", "alloc_disk_space")):
+                        if any(
+                            field in changed_fields
+                            for field in (
+                                "clients",
+                                "gpu_occupancy",
+                                "alloc_disk_space",
+                                "current_rentals_running",
+                                "current_rentals_running_on_demand",
+                                "current_rentals_resident",
+                                "current_rentals_on_demand",
+                            )
+                        ):
                             process_rental_changes(
                                 old,
                                 new,

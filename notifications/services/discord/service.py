@@ -141,8 +141,8 @@ class DiscordService(BaseService):
                 )
         return "\n".join(lines)
 
+
     def _machine_section(self, machine_id: int, it: Dict[str, Any]) -> str:
-        # full section for startup summary
         num_gpus = it["num_gpus"]
         occ_str = it["gpu_occupancy"]
         snapshot = it["snapshot"]
@@ -150,43 +150,51 @@ class DiscordService(BaseService):
         occ_tokens = occ_str.split()
         used = sum(1 for t in occ_tokens if t != "x")
         pct = int(round((used / num_gpus * 100))) if num_gpus else 0
+        session_items: List[tuple[str, Dict[str, Any], str]] = []
         gpu_total_hr = 0.0
         disk_total_hr = 0.0
-        for s in sessions.values():
-            gh, dh, _ = self._session_hourly(s)
+        for sid, session in sessions.items():
+            status = (session.get("status") or "running").lower()
+            session_items.append((sid, session, status))
+            gh, dh, _ = self._session_hourly(session)
             gpu_total_hr += gh
             disk_total_hr += dh
+        running_count = sum(1 for _, _, status in session_items if status != "stored")
+        stored_count = sum(1 for _, _, status in session_items if status == "stored")
         lines: List[str] = [
             self._h3(f"Machine {machine_id}"),
             f"Occupancy: {used}/{num_gpus} GPUs ({pct}%)",
             f"Total est hourly: {gpu_total_hr:.4f}$ (GPUs) + {disk_total_hr:.4f}$ (disk) = {(gpu_total_hr+disk_total_hr):.4f}$",
-            f"Active sessions: {len(sessions)}",
+            f"Tracked sessions: {running_count} running, {stored_count} stored",
         ]
-        if not sessions:
-            lines.append("- No active sessions")
+        if not session_items:
+            lines.append("- No tracked sessions")
         else:
-            for sid, s in sessions.items():
-                gpus = sorted(s.get("gpus", []))
-                gh, dh, th = self._session_hourly(s)
-                started_iso = s.get("start_time")
+            for sid, session, status in session_items:
+                gpus = sorted(session.get("gpus", []))
+                gh, dh, th = self._session_hourly(session)
+                started_iso = session.get("start_time")
                 started = (
                     f"{discord_ts(started_iso, 'f')} ({discord_ts(started_iso, 'R')})"
                     if started_iso
                     else ""
                 )
-                lines.append(f"- {sid}:")
+                lines.append(f"- {sid} ({status})")
                 if gpus:
-                    gr = self._current_gpu_rate(s)
-                    t = s.get("gpu_type") or "?"
-                    lines.append(f"  - GPUs: x{len(gpus)} {gpus} {t} @ {gr:.4f}$/GPU/hr")
-                storage_gb = float(s.get("storage_gb", 0.0) or 0.0)
+                    gr = self._current_gpu_rate(session)
+                    t = session.get("gpu_type") or "?"
+                    if status == "stored":
+                        lines.append(f"  - GPUs (inactive): x{len(gpus)} {gpus} {t}")
+                    else:
+                        lines.append(f"  - GPUs: x{len(gpus)} {gpus} {t} @ {gr:.4f}$/GPU/hr")
+                storage_gb = float(session.get("storage_gb", 0.0) or 0.0)
                 if storage_gb:
-                    sr = self._current_storage_rate(s)
+                    sr = self._current_storage_rate(session)
                     lines.append(f"  - Storage: {storage_gb:.2f} GB @ {sr:.4f}$/GB/mo")
                 lines.append(
                     f"  - Est hourly: {gh:.4f}$ (GPUs) + {dh:.4f}$ (disk) = {th:.4f}$"
                 )
-                gt, dt, tt = self._session_totals(s)
+                gt, dt, tt = self._session_totals(session)
                 lines.append(
                     f"  - Earnings: {gt:.4f}$ (GPUs) + {dt:.4f}$ (disk) = {tt:.4f}$"
                 )
