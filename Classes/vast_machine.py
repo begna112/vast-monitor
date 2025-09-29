@@ -61,7 +61,7 @@ class VastMachine(BaseModel):
     direct_port_count: int
     public_ipaddr: str
     num_reports: Optional[int]
-    num_recent_reports: Optional[int]
+    num_recent_reports: Optional[float]
     client_end_date: Optional[float]
     machine_maintenance: Optional[str]
     driver_version: str
