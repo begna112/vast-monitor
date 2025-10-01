@@ -25,14 +25,35 @@ def seed_sessions_for_current_occupancy(
     """Create placeholder sessions for occupied GPUs that are not yet tracked."""
     snapshot = load_rental_snapshot(paths, machine.machine_id)
     snapshot.setdefault("gpus", {})
-
     snapshot.setdefault("sessions", {})
     snapshot.setdefault("next_session_seq", 1)
 
+    def _as_int(value: object) -> int:
+        try:
+            return int(value or 0)
+        except Exception:
+            return 0
+
+    current_running = _as_int(getattr(machine, "current_rentals_running", 0))
+    current_running_on_demand = _as_int(
+        getattr(machine, "current_rentals_running_on_demand", 0)
+    )
+    current_resident = _as_int(getattr(machine, "current_rentals_resident", 0))
+    current_resident_on_demand = _as_int(
+        getattr(machine, "current_rentals_on_demand", 0)
+    )
+
+    snapshot["current_rentals_running"] = current_running
+    snapshot["current_rentals_running_on_demand"] = current_running_on_demand
+    snapshot["current_rentals_resident"] = current_resident
+    snapshot["current_rentals_on_demand"] = current_resident_on_demand
+    snapshot["gpu_name"] = machine.gpu_name
+
     occ = machine.gpu_occupancy.split()
-    groups: Dict[tuple, list[int]] = {}
+    groups: Dict[tuple[str, float], list[int]] = {}
     for index, token in enumerate(occ):
-        if token == "x":
+        token = token.strip()
+        if not token or token == "x":
             continue
         key = str(index)
         if key in snapshot["gpus"]:
@@ -45,34 +66,65 @@ def seed_sessions_for_current_occupancy(
             rate = machine.bid_gpu_cost or 0.0
         else:
             rate = 0.0
-        groups.setdefault((token, rate), []).append(index)
+        groups.setdefault((token, float(rate or 0.0)), []).append(index)
 
-    for (rental_type, rate), indices in groups.items():
-        seq = snapshot.get("next_session_seq", 1)
-        sid = f"m{machine.machine_id}-{seq:04d}"
-        snapshot["next_session_seq"] = seq + 1
-        session = RentalSession(
-            client_id=sid,
-            gpus=indices,
-            gpu_contracted_rate=rate,
-            storage_contracted_rate=machine.listed_storage_cost,
-        )
-        session.gpu_type = rental_type
-        session.open_gpu_segment(rate, len(indices))
-        session.open_storage_segment(machine.listed_storage_cost)
-        snapshot["sessions"][sid] = session.model_dump()
-        for idx in indices:
-            snapshot["gpus"][str(idx)] = sid
-        logger.info(
-            "Detected ongoing rental at startup: machine %s, session %s, type %s, rate %s, gpus %s",
-            machine.machine_id,
-            sid,
-            rental_type,
-            rate,
-            indices,
-        )
+    remaining_on_demand = current_running_on_demand
+    remaining_other = max(current_running - current_running_on_demand, 0)
+
+    def split_indices(indices: list[int], session_count: int) -> list[list[int]]:
+        if not indices:
+            return []
+        session_count = max(1, min(session_count, len(indices)))
+        chunks: list[list[int]] = []
+        remaining = len(indices)
+        cursor = 0
+        for i in range(session_count):
+            sessions_left = session_count - i
+            take = max(1, remaining - (sessions_left - 1))
+            chunk = indices[cursor : cursor + take]
+            chunks.append(chunk)
+            cursor += take
+            remaining -= take
+        return chunks
+
+    for (rental_type, rate), indices in sorted(groups.items()):
+        if rental_type == "D":
+            desired = min(len(indices), remaining_on_demand) if remaining_on_demand else 0
+            remaining_on_demand = max(remaining_on_demand - desired, 0)
+        else:
+            desired = min(len(indices), remaining_other) if remaining_other else 0
+            remaining_other = max(remaining_other - desired, 0)
+
+        session_chunks = split_indices(indices, desired)
+        for chunk in session_chunks:
+            if not chunk:
+                continue
+            seq = snapshot.get("next_session_seq", 1)
+            sid = f"m{machine.machine_id}-{seq:04d}"
+            snapshot["next_session_seq"] = seq + 1
+            session = RentalSession(
+                client_id=sid,
+                gpus=chunk,
+                gpu_contracted_rate=rate,
+                storage_contracted_rate=machine.listed_storage_cost,
+            )
+            session.gpu_type = rental_type
+            session.open_gpu_segment(rate, len(chunk))
+            session.open_storage_segment(machine.listed_storage_cost)
+            snapshot["sessions"][sid] = session.model_dump()
+            for idx in chunk:
+                snapshot["gpus"][str(idx)] = sid
+            logger.info(
+                "Detected ongoing rental at startup: machine %s, session %s, type %s, rate %s, gpus %s",
+                machine.machine_id,
+                sid,
+                rental_type,
+                rate,
+                chunk,
+            )
 
     snapshot["gpu_occupancy"] = machine.gpu_occupancy
+    snapshot["gpu_name"] = machine.gpu_name
     snapshot["num_gpus"] = machine.num_gpus
     save_rental_snapshot(paths, machine.machine_id, snapshot)
     return snapshot
@@ -91,6 +143,7 @@ def process_rental_changes(
     snapshot.setdefault("gpus", {})
     snapshot.setdefault("sessions", {})
     snapshot.setdefault("next_session_seq", 1)
+    snapshot["gpu_name"] = new.gpu_name
     snapshot.pop("clients", None)
 
     def _as_int(value: object) -> int:
@@ -120,6 +173,11 @@ def process_rental_changes(
     old_stored_interruptible = max(old_interruptible_total - old_running_interruptible, 0)
     new_stored_interruptible = max(new_interruptible_total - new_running_interruptible, 0)
     pause_budget_interruptible = max(new_stored_interruptible - old_stored_interruptible, 0)
+    snapshot["current_rentals_running"] = new_running
+    snapshot["current_rentals_running_on_demand"] = new_running_on_demand
+    snapshot["current_rentals_resident"] = new_resident
+    snapshot["current_rentals_on_demand"] = new_resident_on_demand
+
 
     old_occ = snapshot.get("gpu_occupancy", ("x " * new.num_gpus)).split()
     new_occ = new.gpu_occupancy.split()
@@ -215,6 +273,7 @@ def process_rental_changes(
                     prev_gpus,
                 )
                 snapshot["gpu_occupancy"] = new.gpu_occupancy
+                snapshot["gpu_name"] = new.gpu_name
                 snapshot["num_gpus"] = new.num_gpus
                 if notifier:
                     notifier.send_event_pause(
@@ -238,6 +297,7 @@ def process_rental_changes(
                 snapshot["sessions"].pop(sid, None)
                 logger.info("Rental ended: machine %s, session %s", new.machine_id, sid)
                 snapshot["gpu_occupancy"] = new.gpu_occupancy
+                snapshot["gpu_name"] = new.gpu_name
                 snapshot["num_gpus"] = new.num_gpus
                 if notifier:
                     notifier.send_event_end(
@@ -306,6 +366,7 @@ def process_rental_changes(
                 indices,
             )
             snapshot["gpu_occupancy"] = new.gpu_occupancy
+            snapshot["gpu_name"] = new.gpu_name
             snapshot["num_gpus"] = new.num_gpus
             if notifier:
                 notifier.send_event_resume(
@@ -341,6 +402,7 @@ def process_rental_changes(
                         indices,
                     )
                     snapshot["gpu_occupancy"] = new.gpu_occupancy
+                    snapshot["gpu_name"] = new.gpu_name
                     snapshot["num_gpus"] = new.num_gpus
                     if notifier:
                         notifier.send_event_resume(
@@ -378,6 +440,7 @@ def process_rental_changes(
                 indices,
             )
             snapshot["gpu_occupancy"] = new.gpu_occupancy
+            snapshot["gpu_name"] = new.gpu_name
             snapshot["num_gpus"] = new.num_gpus
             if notifier:
                 notifier.send_event_start(
@@ -428,6 +491,7 @@ def process_rental_changes(
                         best_sid,
                     )
                     snapshot["gpu_occupancy"] = new.gpu_occupancy
+                    snapshot["gpu_name"] = new.gpu_name
                     snapshot["num_gpus"] = new.num_gpus
                     if notifier:
                         notifier.send_event_end(
@@ -451,5 +515,6 @@ def process_rental_changes(
             )
 
     snapshot["gpu_occupancy"] = new.gpu_occupancy
+    snapshot["gpu_name"] = new.gpu_name
     snapshot["num_gpus"] = new.num_gpus
     save_rental_snapshot(paths, new.machine_id, snapshot)

@@ -148,7 +148,7 @@ class NotificationManager:
                 )
                 continue
             try:
-                title, body = formatter(**kwargs)
+                payload_result = formatter(**kwargs)
             except Exception as exc:  # pragma: no cover - runtime logging
                 self._logger.warning(
                     "Failed to format notification for %s (%s): %s",
@@ -157,13 +157,49 @@ class NotificationManager:
                     exc,
                 )
                 continue
-            self._executor.submit(
-                self._notify_target,
-                target,
-                title,
-                body,
-                max_attempts=max_attempts,
-            )
+
+            if isinstance(payload_result, tuple):
+                messages = [payload_result]
+            elif isinstance(payload_result, list):
+                messages = list(payload_result)
+            else:
+                self._logger.warning(
+                    "Formatter %s for target %s returned unsupported payload %r",
+                    formatter_name,
+                    target.name,
+                    payload_result,
+                )
+                continue
+
+            normalized: list[tuple[str, str]] = []
+            for entry in messages:
+                if not isinstance(entry, (list, tuple)) or len(entry) != 2:
+                    self._logger.warning(
+                        "Formatter %s for target %s returned invalid entry %r",
+                        formatter_name,
+                        target.name,
+                        entry,
+                    )
+                    continue
+                title, body = entry
+                if not isinstance(title, str) or not isinstance(body, str):
+                    self._logger.warning(
+                        "Formatter %s for target %s returned non-string payload %r",
+                        formatter_name,
+                        target.name,
+                        entry,
+                    )
+                    continue
+                normalized.append((title, body))
+
+            for title, body in normalized:
+                self._executor.submit(
+                    self._notify_target,
+                    target,
+                    title,
+                    body,
+                    max_attempts=max_attempts,
+                )
 
     # Public API ---------------------------------------------------------
     def send_system_message(

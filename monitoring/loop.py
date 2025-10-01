@@ -108,12 +108,15 @@ def start_monitoring(
                 try:
                     snapshot = load_rental_snapshot(paths, machine.machine_id)
                 except Exception:
-                    snapshot = {"sessions": {}, "gpu_occupancy": machine.gpu_occupancy}
+                    snapshot = {"sessions": {}, "gpu_occupancy": machine.gpu_occupancy, "gpu_name": machine.gpu_name}
+                if isinstance(snapshot, dict):
+                    snapshot.setdefault("gpu_name", machine.gpu_name)
                 items.append(
                     {
                         "machine_id": machine.machine_id,
                         "num_gpus": machine.num_gpus,
                         "gpu_occupancy": machine.gpu_occupancy,
+                        "gpu_name": machine.gpu_name,
                         "snapshot": snapshot,
                     }
                 )

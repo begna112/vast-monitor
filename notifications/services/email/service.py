@@ -220,8 +220,12 @@ class EmailService(BaseService):
         lines: List[str] = []
         if include_heading:
             lines.append(f"Machine {machine_id}")
+        gpu_name = ""
+        if isinstance(snapshot, dict):
+            gpu_name = snapshot.get("gpu_name") or ""
+        gpu_label = f" {gpu_name}" if gpu_name else ""
         lines.append(
-            f"Occupancy: {used}/{total} GPUs ({pct}%)"
+            f"Occupancy: {used}/{total}{gpu_label} GPUs ({pct}%)"
         )
         lines.append(
             f"Total est hourly: {gpu_total_hr:.4f}$ (GPUs) + {disk_total_hr:.4f}$ (disk) = {(gpu_total_hr + disk_total_hr):.4f}$"

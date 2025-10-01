@@ -1,8 +1,9 @@
 from __future__ import annotations
 from typing import Tuple, Sequence, Dict, Any, List, Optional
+from datetime import datetime, timezone
+
 from notifications.services.base import BaseService
 from notifications.utils import HR, discord_ts, humanize_duration
-from datetime import datetime, timezone
 
 
 class DiscordService(BaseService):
@@ -13,6 +14,47 @@ class DiscordService(BaseService):
 
     def _h3(self, title: str) -> str:
         return f"### {title}"
+
+    def _chunk_messages(
+        self,
+        header: str,
+        parts: Sequence[Sequence[str] | str],
+        *,
+        limit: int = 1800,
+        repeat_header: bool = True,
+    ) -> List[Tuple[str, str]]:
+        messages: List[Tuple[str, str]] = []
+        base_first = [HR, header]
+        base_next = base_first if repeat_header else []
+        current: List[str] = base_first[:]
+        base_lines = base_first
+        current_len = sum(len(line) + 1 for line in current)
+
+        for part in parts:
+            if not part:
+                continue
+            if isinstance(part, str):
+                iter_lines = part.splitlines()
+            else:
+                iter_lines = list(part)
+            for line in iter_lines:
+                addition = len(line) + 1
+                if (
+                    current_len + addition > limit
+                    and len(current) > len(base_lines)
+                ):
+                    messages.append(("", "\n".join(current)))
+                    current = base_next[:]
+                    base_lines = base_next
+                    current_len = sum(len(line) + 1 for line in current)
+                    if not line:
+                        continue
+                current.append(line)
+                current_len += addition
+
+        if len(current) > len(base_lines) or not messages:
+            messages.append(("", "\n".join(current)))
+        return messages
 
     def format_system_message(
         self, *, title: str, lines: Sequence[str]
@@ -30,23 +72,21 @@ class DiscordService(BaseService):
         rental_type: str,
         rate: float,
         indices: Sequence[int],
-    ) -> Tuple[str, str]:
+    ) -> List[Tuple[str, str]]:
         header = self._h2("New Rental")
-        # Top section: machine + new session block (tiered bullets)
-        lines: List[str] = [f"Machine {machine_id}"]
-        lines.extend(
+        top_lines: List[str] = [f"Machine {machine_id}"]
+        top_lines.extend(
             self._session_block(session=session, rental_type=rental_type, rate=rate)
         )
-        # Full single-machine summary (H3) using current snapshot
         item = {
             "machine_id": machine_id,
             "num_gpus": snapshot.get("num_gpus", 0),
             "gpu_occupancy": snapshot.get("gpu_occupancy", ""),
+            "gpu_name": snapshot.get("gpu_name"),
             "snapshot": snapshot,
         }
-        section = self._machine_section(machine_id, item)
-        body = "\n".join([HR, header, "\n".join(lines), section])
-        return "", body
+        section_lines = self._machine_section_lines(machine_id, item)
+        return self._chunk_messages(header, [top_lines, [""], section_lines])
 
     def format_event_end(
         self,
@@ -54,31 +94,112 @@ class DiscordService(BaseService):
         machine_id: int,
         session: Dict[str, Any],
         snapshot: Dict[str, Any],
-    ) -> Tuple[str, str]:
+    ) -> List[Tuple[str, str]]:
         header = self._h2("Rental Ended")
-        lines: List[str] = [f"Machine {machine_id}"]
-        lines.extend(self._session_block_end(session=session))
+        top_lines: List[str] = [f"Machine {machine_id}"]
+        top_lines.extend(self._session_block_end(session=session))
         item = {
             "machine_id": machine_id,
             "num_gpus": snapshot.get("num_gpus", 0),
             "gpu_occupancy": snapshot.get("gpu_occupancy", ""),
+            "gpu_name": snapshot.get("gpu_name"),
             "snapshot": snapshot,
         }
-        section = self._machine_section(machine_id, item)
-        body = "\n".join([HR, header, "\n".join(lines), section])
-        return "", body
+        section_lines = self._machine_section_lines(machine_id, item)
+        return self._chunk_messages(header, [top_lines, [""], section_lines])
+
+    def format_event_pause(
+        self,
+        *,
+        machine_id: int,
+        session: Dict[str, Any],
+        snapshot: Dict[str, Any],
+    ) -> List[Tuple[str, str]]:
+        header = self._h2("Session Paused")
+        top_lines: List[str] = [f"Machine {machine_id}"]
+        sid = session.get("client_id")
+        gpus = sorted(session.get("gpus", []))
+        storage_gb = float(session.get("storage_gb", 0.0) or 0.0)
+        top_lines.append(f"- {sid}:")
+        top_lines.append(f"  - x{len(gpus)} GPUs released: {gpus}")
+        if storage_gb:
+            top_lines.append(f"  - Storage: {storage_gb:.2f} GB continues")
+        paused_iso = session.get("last_state_change")
+        if paused_iso:
+            top_lines.append(
+                f"  - Paused: {discord_ts(paused_iso, 'f')} ({discord_ts(paused_iso, 'R')})"
+            )
+        item = {
+            "machine_id": machine_id,
+            "num_gpus": snapshot.get("num_gpus", 0),
+            "gpu_occupancy": snapshot.get("gpu_occupancy", ""),
+            "gpu_name": snapshot.get("gpu_name"),
+            "snapshot": snapshot,
+        }
+        section_lines = self._machine_section_lines(machine_id, item)
+        return self._chunk_messages(header, [top_lines, [""], section_lines])
+
+    def format_event_resume(
+        self,
+        *,
+        machine_id: int,
+        session: Dict[str, Any],
+        snapshot: Dict[str, Any],
+        rate: float,
+    ) -> List[Tuple[str, str]]:
+        header = self._h2("Session Resumed")
+        top_lines: List[str] = [f"Machine {machine_id}"]
+        sid = session.get("client_id")
+        gpus = sorted(session.get("gpus", []))
+        gpu_count = len(gpus)
+        est_hourly = rate * gpu_count
+        top_lines.append(f"- {sid}:")
+        top_lines.append(f"  - x{gpu_count} GPUs allocated: {gpus}")
+        top_lines.append(
+            f"  - GPU rate: ${rate:.4f}/gpu/hr (est hourly {est_hourly:.4f}$)"
+        )
+        storage_gb = float(session.get("storage_gb", 0.0) or 0.0)
+        if storage_gb:
+            storage_rate = self._current_storage_rate(session)
+            storage_hourly = (storage_rate * storage_gb) / 730.0
+            top_lines.append(
+                f"  - Storage: {storage_gb:.2f} GB @ {storage_rate:.4f}$/GB/mo (~{storage_hourly:.4f}$/hr)"
+            )
+        resumed_iso = session.get("last_state_change") or session.get("start_time")
+        if resumed_iso:
+            top_lines.append(
+                f"  - Resumed: {discord_ts(resumed_iso, 'f')} ({discord_ts(resumed_iso, 'R')})"
+            )
+        item = {
+            "machine_id": machine_id,
+            "num_gpus": snapshot.get("num_gpus", 0),
+            "gpu_occupancy": snapshot.get("gpu_occupancy", ""),
+            "gpu_name": snapshot.get("gpu_name"),
+            "snapshot": snapshot,
+        }
+        section_lines = self._machine_section_lines(machine_id, item)
+        return self._chunk_messages(header, [top_lines, [""], section_lines])
 
     def format_startup_summary(
         self, *, items: Sequence[Dict[str, Any]]
-    ) -> Tuple[str, str]:
+    ) -> List[Tuple[str, str]]:
         header = self._h2("Startup Summary")
-        sections: List[str] = []
+        sections: List[List[str]] = []
         for it in items:
             machine_id = it["machine_id"]
-            sections.append(self._machine_section(machine_id, it))
-        # Single blank line between sections
-        body = "\n".join([HR, header, "\n".join(sections)])
-        return "", body
+            sections.append(self._machine_section_lines(machine_id, it))
+
+        if not sections:
+            body = "\n".join([HR, header, "No tracked machines."])
+            return [("", body)]
+
+        parts: List[Sequence[str] | str] = []
+        for idx, section_lines in enumerate(sections):
+            if idx:
+                parts.append([""])
+            parts.append(section_lines)
+
+        return self._chunk_messages(header, parts, repeat_header=False)
 
     def format_error(
         self, *, machine_id: int, error: str, mention: Optional[str] = None
@@ -101,7 +222,6 @@ class DiscordService(BaseService):
         return "", body
 
     def _machine_summary(self, machine_id: int, snapshot: Dict[str, Any]) -> str:
-        # Summary including GPU + disk hourly totals
         sessions = snapshot.get("sessions", {}) if isinstance(snapshot, dict) else {}
         occ = (snapshot.get("gpu_occupancy") or "").split()
         used = sum(1 for t in occ if t and t != "x")
@@ -112,10 +232,14 @@ class DiscordService(BaseService):
             gh, dh, _ = self._session_hourly(s)
             gpu_total_hr += gh
             disk_total_hr += dh
+        gpu_name = ""
+        if isinstance(snapshot, dict):
+            gpu_name = snapshot.get("gpu_name") or ""
+        gpu_label = f" {gpu_name}" if gpu_name else ""
         lines: List[str] = [
             f"Machine {machine_id} summary:",
-            f"Occupancy: {used}/{total} GPUs",
-            f"Active sessions: {len(sessions)}; est hourly {gpu_total_hr:.4f}$ (GPUs) + {disk_total_hr:.4f}$ (disk) = {(gpu_total_hr+disk_total_hr):.4f}$",
+            f"Occupancy: {used}/{total}{gpu_label} GPUs",
+            f"Active sessions: {len(sessions)}; est hourly {gpu_total_hr:.4f}$ (GPUs) + {disk_total_hr:.4f}$ (disk) = {(gpu_total_hr + disk_total_hr):.4f}$",
         ]
         if not sessions:
             lines.append("- No active sessions")
@@ -141,15 +265,16 @@ class DiscordService(BaseService):
                 )
         return "\n".join(lines)
 
-
-    def _machine_section(self, machine_id: int, it: Dict[str, Any]) -> str:
-        num_gpus = it["num_gpus"]
-        occ_str = it["gpu_occupancy"]
-        snapshot = it["snapshot"]
+    def _machine_section_lines(self, machine_id: int, it: Dict[str, Any]) -> List[str]:
+        num_gpus = int(it.get("num_gpus", 0) or 0)
+        occ_str = it.get("gpu_occupancy") or ""
+        snapshot = it.get("snapshot")
         sessions = snapshot.get("sessions", {}) if isinstance(snapshot, dict) else {}
         occ_tokens = occ_str.split()
-        used = sum(1 for t in occ_tokens if t != "x")
-        pct = int(round((used / num_gpus * 100))) if num_gpus else 0
+        used = sum(1 for t in occ_tokens if t and t != "x")
+        total_slots = num_gpus or len(occ_tokens)
+        pct = int(round((used / total_slots) * 100)) if total_slots else 0
+
         session_items: List[tuple[str, Dict[str, Any], str]] = []
         gpu_total_hr = 0.0
         disk_total_hr = 0.0
@@ -159,12 +284,18 @@ class DiscordService(BaseService):
             gh, dh, _ = self._session_hourly(session)
             gpu_total_hr += gh
             disk_total_hr += dh
+
         running_count = sum(1 for _, _, status in session_items if status != "stored")
         stored_count = sum(1 for _, _, status in session_items if status == "stored")
+        gpu_name = it.get("gpu_name") or ""
+        if not gpu_name and isinstance(snapshot, dict):
+            gpu_name = snapshot.get("gpu_name") or ""
+        gpu_label = f" {gpu_name}" if gpu_name else ""
+
         lines: List[str] = [
             self._h3(f"Machine {machine_id}"),
-            f"Occupancy: {used}/{num_gpus} GPUs ({pct}%)",
-            f"Total est hourly: {gpu_total_hr:.4f}$ (GPUs) + {disk_total_hr:.4f}$ (disk) = {(gpu_total_hr+disk_total_hr):.4f}$",
+            f"Occupancy: {used}/{total_slots}{gpu_label} GPUs ({pct}%)",
+            f"Total est hourly: {gpu_total_hr:.4f}$ (GPUs) + {disk_total_hr:.4f}$ (disk) = {(gpu_total_hr + disk_total_hr):.4f}$",
             f"Tracked sessions: {running_count} running, {stored_count} stored",
         ]
         if not session_items:
@@ -182,11 +313,13 @@ class DiscordService(BaseService):
                 lines.append(f"- {sid} ({status})")
                 if gpus:
                     gr = self._current_gpu_rate(session)
-                    t = session.get("gpu_type") or "?"
+                    gpu_type = session.get("gpu_type") or "?"
                     if status == "stored":
-                        lines.append(f"  - GPUs (inactive): x{len(gpus)} {gpus} {t}")
+                        lines.append(f"  - GPUs (inactive): x{len(gpus)} {gpus} {gpu_type}")
                     else:
-                        lines.append(f"  - GPUs: x{len(gpus)} {gpus} {t} @ {gr:.4f}$/GPU/hr")
+                        lines.append(
+                            f"  - GPUs: x{len(gpus)} {gpus} {gpu_type} @ {gr:.4f}$/GPU/hr"
+                        )
                 storage_gb = float(session.get("storage_gb", 0.0) or 0.0)
                 if storage_gb:
                     sr = self._current_storage_rate(session)
@@ -198,8 +331,9 @@ class DiscordService(BaseService):
                 lines.append(
                     f"  - Earnings: {gt:.4f}$ (GPUs) + {dt:.4f}$ (disk) = {tt:.4f}$"
                 )
-                lines.append(f"  - Start: {started}")
-        return "\n".join(lines)
+                if started:
+                    lines.append(f"  - Start: {started}")
+        return lines
 
     def _session_block(
         self, *, session: Dict[str, Any], rental_type: str, rate: float
@@ -216,8 +350,7 @@ class DiscordService(BaseService):
         )
         out: List[str] = []
         out.append(f"- {sid}:")
-        # Include storage hourly if present
-        storage_gb = float(session.get("storage_gb", 0.0))
+        storage_gb = float(session.get("storage_gb", 0.0) or 0.0)
         ssegs = session.get("storage_segments", [])
         cur_storage_rate = None
         if ssegs:
@@ -235,7 +368,8 @@ class DiscordService(BaseService):
             out.append(
                 f"  - Storage: {storage_gb:.2f} GB @ {(cur_storage_rate or 0.0):.4f}$/GB/mo"
             )
-        out.append(f"  - Start: {started}")
+        if started:
+            out.append(f"  - Start: {started}")
         return out
 
     def _session_block_end(self, *, session: Dict[str, Any]) -> List[str]:
@@ -261,12 +395,11 @@ class DiscordService(BaseService):
         out.append(f"- {sid}:")
         out.append(f"  - x{gcount} GPUs released: {gpus}")
         out.append(f"  - Duration: {dur_h}")
-        # Prefer split totals if provided
         gpu_total = float(session.get("earned_gpu", 0.0))
         storage_total = float(session.get("earned_storage", 0.0))
         if gpu_total or storage_total:
             out.append(
-                f"  - Total earned: {gpu_total:.4f}$ (GPUs) + {storage_total:.4f}$ (disk) = {(gpu_total+storage_total):.4f}$"
+                f"  - Total earned: {gpu_total:.4f}$ (GPUs) + {storage_total:.4f}$ (disk) = {(gpu_total + storage_total):.4f}$"
             )
         else:
             out.append(f"  - Total earned: ${earned:.4f}")
@@ -276,7 +409,6 @@ class DiscordService(BaseService):
             out.append(f"  - End: {end_ts}")
         return out
 
-    # Helpers
     def _current_gpu_rate(self, session: Dict[str, Any]) -> float:
         gsegs = session.get("gpu_segments", [])
         if gsegs:
@@ -308,7 +440,8 @@ class DiscordService(BaseService):
         for seg in session.get("gpu_segments", []) or []:
             try:
                 s = datetime.fromisoformat(seg.get("start"))
-                e = datetime.fromisoformat(seg.get("end")) if seg.get("end") else now_ts
+                e_raw = seg.get("end")
+                e = datetime.fromisoformat(e_raw) if e_raw else now_ts
                 secs = max(0.0, (e - s).total_seconds())
                 rate = float(seg.get("rate", 0.0) or 0.0)
                 cnt = int(seg.get("gpu_count", 0) or 0)
@@ -320,7 +453,8 @@ class DiscordService(BaseService):
         for seg in session.get("storage_segments", []) or []:
             try:
                 s = datetime.fromisoformat(seg.get("start"))
-                e = datetime.fromisoformat(seg.get("end")) if seg.get("end") else now_ts
+                e_raw = seg.get("end")
+                e = datetime.fromisoformat(e_raw) if e_raw else now_ts
                 secs = max(0.0, (e - s).total_seconds())
                 rate = float(seg.get("rate_per_gb_month", 0.0) or 0.0)
                 storage_total += (rate * storage_gb) * (secs / (730.0 * 3600.0))

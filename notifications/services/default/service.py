@@ -40,6 +40,7 @@ class DefaultService(BaseService):
             "machine_id": machine_id,
             "num_gpus": snapshot.get("num_gpus", 0),
             "gpu_occupancy": snapshot.get("gpu_occupancy", ""),
+            "gpu_name": snapshot.get("gpu_name"),
             "snapshot": snapshot,
         }
         section = self._machine_section(machine_id, item)
@@ -60,6 +61,7 @@ class DefaultService(BaseService):
             "machine_id": machine_id,
             "num_gpus": snapshot.get("num_gpus", 0),
             "gpu_occupancy": snapshot.get("gpu_occupancy", ""),
+            "gpu_name": snapshot.get("gpu_name"),
             "snapshot": snapshot,
         }
         section = self._machine_section(machine_id, item)
@@ -81,6 +83,7 @@ class DefaultService(BaseService):
             "machine_id": machine_id,
             "num_gpus": snapshot.get("num_gpus", 0),
             "gpu_occupancy": snapshot.get("gpu_occupancy", ""),
+            "gpu_name": snapshot.get("gpu_name"),
             "snapshot": snapshot,
         }
         section = self._machine_section(machine_id, item)
@@ -106,6 +109,7 @@ class DefaultService(BaseService):
             "machine_id": machine_id,
             "num_gpus": snapshot.get("num_gpus", 0),
             "gpu_occupancy": snapshot.get("gpu_occupancy", ""),
+            "gpu_name": snapshot.get("gpu_name"),
             "snapshot": snapshot,
         }
         section = self._machine_section(machine_id, item)
@@ -151,9 +155,13 @@ class DefaultService(BaseService):
             gh, dh, _ = self._session_hourly(s)
             gpu_total_hr += gh
             disk_total_hr += dh
+        gpu_name = ""
+        if isinstance(snapshot, dict):
+            gpu_name = snapshot.get("gpu_name") or ""
+        gpu_label = f" {gpu_name}" if gpu_name else ""
         lines: List[str] = [
             f"Machine {machine_id} summary:",
-            f"Occupancy: {used}/{total} GPUs",
+            f"Occupancy: {used}/{total}{gpu_label} GPUs",
             f"Active sessions: {len(sessions)}; est hourly {gpu_total_hr:.4f}$ (GPUs) + {disk_total_hr:.4f}$ (disk) = {(gpu_total_hr+disk_total_hr):.4f}$",
         ]
         if not sessions:
@@ -201,9 +209,13 @@ class DefaultService(BaseService):
             disk_total_hr += dh
         running_count = sum(1 for _, _, status in session_items if status != "stored")
         stored_count = sum(1 for _, _, status in session_items if status == "stored")
+        gpu_name = it.get("gpu_name") or ""
+        if not gpu_name and isinstance(snapshot, dict):
+            gpu_name = snapshot.get("gpu_name") or ""
+        gpu_label = f" {gpu_name}" if gpu_name else ""
         lines: List[str] = [
             self._h3(f"Machine {machine_id}"),
-            f"Occupancy: {used}/{num_gpus} GPUs ({pct}%)",
+            f"Occupancy: {used}/{num_gpus}{gpu_label} GPUs ({pct}%)",
             f"Total est hourly: {gpu_total_hr:.4f}$ (GPUs) + {disk_total_hr:.4f}$ (disk) = {(gpu_total_hr+disk_total_hr):.4f}$",
             f"Tracked sessions: {running_count} running, {stored_count} stored",
         ]
