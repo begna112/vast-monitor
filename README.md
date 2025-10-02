@@ -6,7 +6,7 @@ Vast Monitor tracks selected Vast.ai machines, watches rental activity, and deli
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/<your-username>/vast-monitor.git
+   git clone https://github.com/begna112/vast-monitor.git
    cd vast-monitor
    ```
 2. Copy the example config and edit it (see [Configuration](#configuration)).
