@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Union
 
 
 class MachineMaintenance(BaseModel):
@@ -72,7 +72,7 @@ class VastMachine(BaseModel):
     num_reports: Optional[int]
     num_recent_reports: Optional[float]
     client_end_date: Optional[float]
-    machine_maintenance: Optional[List[MachineMaintenance]]
+    machine_maintenance: Optional[Union[str, List[MachineMaintenance]]]
     driver_version: str
     cuda_max_good: float
     kernel_version: Optional[str]
