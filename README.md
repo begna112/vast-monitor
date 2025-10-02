@@ -18,6 +18,15 @@ Vast Monitor tracks selected Vast.ai machines, watches rental activity, and deli
 
 The project is designed to run directly from the cloned folder—no packaging step is required.
 
+## Updating the Monitor
+
+1. Pull the repository:
+   ```bash
+   cd vast-monitor
+   git pull --rebase
+   ```
+2. Stop and start the script again. 
+   
 ## Requirements
 
 - Python 3.10 or newer
