@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  monitor_primary:
+    image: ghcr.io/begna112/vast-monitor:latest
+    container_name: vast-monitor-primary
+    hostname: vast-monitor-primary
+    restart: unless-stopped
+    volumes:
+      - ~/vastmonitor-config-primary:/config
+
+  # monitor_secondary:
+  #   image: ghcr.io/begna112/vast-monitor:latest
+  #   container_name: vast-monitor-secondary
+  #   hostname: vast-monitor-secondary
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ~/vastmonitor-config-secondary:/config
+
+  # monitor_third:
+  #   image: ghcr.io/begna112/vast-monitor:latest
+  #   container_name: vast-monitor-third
+  #   hostname: vast-monitor-third
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ~/vastmonitor-config-third:/config

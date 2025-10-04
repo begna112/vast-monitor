@@ -1,4 +1,4 @@
-# Vast Monitor
+﻿# Vast Monitor
 
 Vast Monitor tracks selected Vast.ai machines, watches rental activity, and delivers real-time notifications when sessions start, pause, resume, end, or when machines report errors. It keeps a lightweight local snapshot of machine state for continuity and can notify multiple channels in parallel via [Apprise](https://github.com/caronc/apprise).
 
@@ -68,6 +68,8 @@ All config keys mirror `examples/config.example.json`.
 
 ## Running the Monitor
 
+### Running Locally
+
 The monitor stores everything next to your config file. For example:
 
 ```bash
@@ -75,10 +77,48 @@ python vast_monitor.py --config ~/.config/vast-monitor/config.json
 ```
 
 If your config lives at `~/.config/vast-monitor/config.json`, runtime files appear under `~/.config/vast-monitor/` in these locations:
-- `machine_snapshots/` – latest machine payloads per ID
-- `rental_snapshot.json` – session tracking per machine
-- `rental_logs/` – archived session payloads
-- `vast_monitor.log` – rolling log file (rotated nightly)
+- `machine_snapshots/` — latest machine payloads per ID
+- `rental_snapshot.json` — session tracking per machine
+- `rental_logs/` — archived session payloads
+- `vast_monitor.log` — rolling log file (rotated nightly)
+
+### Running with Docker
+
+Pre-built images are published to GitHub Container Registry. Create a directory **outside this repository** to hold your config and runtime state (for example `~/vastmonitor-config/`), place your `config.json` there, then start the container:
+
+```bash
+mkdir -p ~/vastmonitor-config
+cp /path/to/your/config.json ~/vastmonitor-config/config.json
+docker pull ghcr.io/begna112/vast-monitor:latest
+docker run --rm \
+  -v ~/vastmonitor-config:/config \
+  ghcr.io/begna112/vast-monitor:latest
+```
+
+- `/config/config.json` must exist inside the mounted directory and mirrors `examples/config.example.json`.
+- Any state or log files created by the monitor stay within the mounted host directory.
+- If you need a different filename, append `--config /config/other.json` to the run command.
+
+## Running with Docker Compose (Best for Multiple Vast Accounts)
+
+A sample `compose.yaml` references the image and mounts `./config-primary` by default. Create a config directory **outside the repository** (e.g. `~/vastmonitor-config-primary/`), copy your `config.json` there, and update the volume mapping:
+
+```yaml
+services:
+  monitor_primary:
+    image: ghcr.io/begna112/vast-monitor:latest
+    volumes:
+      - ~/vastmonitor-config-primary:/config
+```
+
+Then launch:
+
+```bash
+docker compose up -d
+```
+
+To monitor additional machines, create more host directories (`~/vastmonitor-config-secondary/`, etc.), place distinct configs inside, and uncomment the extra services in `compose.yaml`, updating each volume path accordingly.
+
 
 ## Supported Notification Services
 
@@ -94,14 +134,14 @@ Refer to the [Apprise Documentation](https://github.com/caronc/apprise/wiki) as 
 
 Each notification target can subscribe to specific events via the `events` list. Supported values include:
 
-- `system` – startup/shutdown/system messages
-- `startup` – initial summary of existing rentals when the monitor launches
-- `rental_start` – a new rental was detected
-- `rental_end` – a rental fully ended (GPUs released and storage cleared)
-- `rental_pause` – GPUs released but storage remains allocated
-- `rental_resume` – a paused rental resumed on the machine
-- `error` – machine reported an error or timeout
-- `recovery` – machine recovered from an error/timeout
+- `system` — startup/shutdown/system messages
+- `startup` — initial summary of existing rentals when the monitor launches
+- `rental_start` — a new rental was detected
+- `rental_end` — a rental fully ended (GPUs released and storage cleared)
+- `rental_pause` — GPUs released but storage remains allocated
+- `rental_resume` — a paused rental resumed on the machine
+- `error` — machine reported an error or timeout
+- `recovery` — machine recovered from an error/timeout
 
 Use `"all"` (or omit the list) to receive every event.
 
@@ -163,3 +203,7 @@ Then reload supervisor.
 ## Sample Data
 
 The `examples/` directory contains sample config and snapshot files that demonstrate the expected structure without exposing real machine details. When running the monitor, always use your own copies outside the repository to avoid overwriting tracked files.
+
+
+
+
