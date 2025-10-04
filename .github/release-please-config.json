@@ -2,8 +2,10 @@
   "packages": {
     ".": {
       "package-name": "vast-monitor",
-      "release-type": "python",
-      "changelog-path": "CHANGELOG.md"
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false,
+      "tag-template": "v${version}"
     }
   }
 }
