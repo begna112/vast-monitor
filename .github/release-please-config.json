@@ -1,0 +1,9 @@
+{
+  "packages": {
+    ".": {
+      "package-name": "vast-monitor",
+      "release-type": "python",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}

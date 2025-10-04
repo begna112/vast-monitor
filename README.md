@@ -204,6 +204,3 @@ Then reload supervisor.
 
 The `examples/` directory contains sample config and snapshot files that demonstrate the expected structure without exposing real machine details. When running the monitor, always use your own copies outside the repository to avoid overwriting tracked files.
 
-
-
-
