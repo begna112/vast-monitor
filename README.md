@@ -107,7 +107,7 @@ The `examples/` directory contains sample configs and snapshots that demonstrate
 
 ### Requirements
 
-- Python 3.10 or newer
+- Python 3.12 or newer
 - Vast.ai account with an API key
 - Optional: Apprise-compatible notification endpoints (Discord, email, etc.)
 
