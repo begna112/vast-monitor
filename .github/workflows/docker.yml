@@ -4,6 +4,8 @@ on:
   push:
     branches: [ main ]
     tags: [ "v*" ]
+  release:
+    types: [ published ]
   workflow_dispatch:
 
 env:
@@ -37,9 +39,17 @@ jobs:
             "ghcr.io/begna112/${IMAGE_NAME}:latest"
             "ghcr.io/begna112/${IMAGE_NAME}:${GITHUB_SHA}"
           )
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/v* ]]; then
             version_tag=${GITHUB_REF#refs/tags/}
             tags+=("ghcr.io/begna112/${IMAGE_NAME}:${version_tag}")
+          elif [[ "${GITHUB_EVENT_NAME}" == "release" ]]; then
+            version_tag=${GITHUB_REF#refs/tags/}
+            if [[ -z "${version_tag}" ]]; then
+              version_tag="${{ github.event.release.tag_name }}"
+            fi
+            if [[ -n "${version_tag}" ]]; then
+              tags+=("ghcr.io/begna112/${IMAGE_NAME}:${version_tag}")
+            fi
           fi
           {
             printf 'tags<<EOF\n'
