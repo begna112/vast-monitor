@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/begna112/vast-monitor/compare/vast-monitor-v1.1.0...vast-monitor-v1.2.0) (2025-10-04)
+
+
+### Features
+
+* add release version tag for docker builds in GH. ([0006cc6](https://github.com/begna112/vast-monitor/commit/0006cc6ba12f11acccb3737202327456e8110978))
+
+
+### Documentation
+
+* major rework of README for ease of use. ([1c0861b](https://github.com/begna112/vast-monitor/commit/1c0861be1b0955f7ed8fc7d43394bf640381acd7))
+* Update Python version requirement to 3.12 ([5932075](https://github.com/begna112/vast-monitor/commit/5932075035b9fd6d51efce16a42979f8720f438e))
+
 ## [1.1.0](https://github.com/begna112/vast-monitor/compare/vast-monitor-v1.0.0...vast-monitor-v1.1.0) (2025-10-04)
 
 
