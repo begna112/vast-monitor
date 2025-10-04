@@ -33,16 +33,18 @@ jobs:
         id: meta
         shell: bash
         run: |
-          tags="ghcr.io/begna112/${IMAGE_NAME}:latest\n"
-          tags+="ghcr.io/begna112/${IMAGE_NAME}:${GITHUB_SHA}\n"
+          tags=(
+            "ghcr.io/begna112/${IMAGE_NAME}:latest"
+            "ghcr.io/begna112/${IMAGE_NAME}:${GITHUB_SHA}"
+          )
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             version_tag=${GITHUB_REF#refs/tags/}
-            tags+="ghcr.io/begna112/${IMAGE_NAME}:${version_tag}\n"
+            tags+=("ghcr.io/begna112/${IMAGE_NAME}:${version_tag}")
           fi
           {
-            echo "tags<<EOF"
-            printf '%s' "$tags"
-            echo "EOF"
+            printf 'tags<<EOF\n'
+            printf '%s\n' "${tags[@]}"
+            printf 'EOF\n'
           } >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
