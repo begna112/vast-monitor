@@ -1,4 +1,32 @@
-﻿# Changelog
+# Changelog
+
+## [1.1.0](https://github.com/begna112/vast-monitor/compare/vast-monitor-v1.0.0...vast-monitor-v1.1.0) (2025-10-04)
+
+
+### Features
+
+* add docker/compose implementation. ([1e13d7a](https://github.com/begna112/vast-monitor/commit/1e13d7ac2fad9aa35450e9ef2db87461e3531b9d))
+* Improve startup session seeding and multi-target notifications. Include GPU names in startup summaries and service formatters. Allow notification formatters to return multi-message payloads and chunk Discord summaries safely under 2k characters. Capture current rental counters in snapshots and split placeholders across active sessions when seeding rentals. ([de70868](https://github.com/begna112/vast-monitor/commit/de70868c9edf4ce99a79b881d5d741c241319099))
+* Initial commit ([5d7d036](https://github.com/begna112/vast-monitor/commit/5d7d036feeae5df2d98c21c23819443df9344143))
+
+
+### Bug Fixes
+
+* allow string in machine_maintenance ([ff7c206](https://github.com/begna112/vast-monitor/commit/ff7c2063d2e069c76f17c1730950e893785e1baa))
+* fix docker github action ([19baa42](https://github.com/begna112/vast-monitor/commit/19baa42adc3c96648740f65a82199994b90ee1a6))
+* for real this time ([6e3c487](https://github.com/begna112/vast-monitor/commit/6e3c48782c81338bf77d8e77891bc9714443b5fa))
+* handle case where there are (invalid) machines in the account that aren't in the config. ([3de3e76](https://github.com/begna112/vast-monitor/commit/3de3e76efd8a21a6be549177f9b5811c623514ef))
+* Preserve stored sessions across restarts by tightening seeding logic, fix stored pause detection, and surface stored vs running sessions in startup logs/notifications. ([12365e9](https://github.com/begna112/vast-monitor/commit/12365e9d24fcbd5409139b1f371781bff67de259))
+* update VastMachine for machine maintenance fields. ([eb7593e](https://github.com/begna112/vast-monitor/commit/eb7593e5fe6112a769ed77ff707a8f1c544bad9f))
+
+
+### Documentation
+
+* Add update instructions to README ([f868d5e](https://github.com/begna112/vast-monitor/commit/f868d5e1d3b85b23c5920d261df808e59a051c7f))
+* Update clone URL in installation instructions ([8795e56](https://github.com/begna112/vast-monitor/commit/8795e56d33b4027a0f8806c5741f9b2c41bc755e))
+* update readme ([fa3df22](https://github.com/begna112/vast-monitor/commit/fa3df228c95fdc3f515bffb4dd25029fd710d0e6))
+* update readme ([5700c3b](https://github.com/begna112/vast-monitor/commit/5700c3bc31b1c4af227858eab905d83bb403ae2e))
+
+# Changelog
 
 All notable changes to this project will be documented in this file. The format is inspired by [Keep a Changelog](https://keepachangelog.com/), and this file is updated automatically by release-please.
-
