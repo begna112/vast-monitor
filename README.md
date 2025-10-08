@@ -33,10 +33,18 @@ All deployment methods share the same JSON schema as `examples/config.example.js
 
 Copy the example config outside this repository and edit it:
 
+Linux:
 ```bash
 mkdir -p ~/.config/vast-monitor
 curl -fsSL https://raw.githubusercontent.com/begna112/vast-monitor/main/examples/config.example.json \
   -o ~/.config/vast-monitor/config.json
+```
+
+Windows:
+```Powershell
+New-Item -Path "$env:USERPROFILE\.config\vast-monitor" -ItemType Directory -Force
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/begna112/vast-monitor/main/examples/config.example.json" `
+  -OutFile "$env:USERPROFILE\.config\vast-monitor\config.json"
 ```
 
 (Or download the file manually and move it to your preferred location.)
