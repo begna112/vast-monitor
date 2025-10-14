@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Dict, Any
 
 
 class MachineMaintenance(BaseModel):
@@ -12,7 +12,7 @@ class MachineMaintenance(BaseModel):
 
 
 class VastMachine(BaseModel):
-    clients: List
+    clients: List[Dict[str, Any]]
     id: int
     machine_id: int
     hostname: str
@@ -48,7 +48,7 @@ class VastMachine(BaseModel):
     gpu_occupancy: str
     bid_gpu_cost: Optional[float]
     bid_image: Optional[str]
-    bid_image_args: Optional[str]
+    bid_image_args: Optional[List[Any]]
     bid_image_args_str: Optional[str]
     disk_space: float
     max_disk_space: int

@@ -245,6 +245,7 @@ def start_monitoring(
                         "num_recent_reports",
                         "machine_maintenance",
                         "alloc_disk_space",
+                        "client_end_date",
                         "timeout",
                     )
 
@@ -266,6 +267,7 @@ def start_monitoring(
                                 "clients",
                                 "gpu_occupancy",
                                 "alloc_disk_space",
+                                "client_end_date",
                                 "current_rentals_running",
                                 "current_rentals_running_on_demand",
                                 "current_rentals_resident",

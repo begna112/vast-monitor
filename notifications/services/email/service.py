@@ -260,8 +260,11 @@ class EmailService(BaseService):
             lines.append(
                 f"  - Earnings: {gpu_total:.4f}$ (GPUs) + {storage_total:.4f}$ (disk) = {total_earned:.4f}$"
             )
+            contract_line = self._format_timestamp(sess.get("client_end_date"))
             if start_line:
                 lines.append(f"  - Start: {start_line}")
+            if contract_line:
+                lines.append(f"  - Contract end: {contract_line}")
         return lines
 
     def _session_block(
@@ -288,6 +291,9 @@ class EmailService(BaseService):
             )
         if start_line:
             lines.append(f"  - Start: {start_line}")
+        contract_line = self._format_timestamp(session.get("client_end_date"))
+        if contract_line:
+            lines.append(f"  - Contract end: {contract_line}")
         return lines
 
     def _session_block_end(self, *, session: Dict[str, Any]) -> List[str]:

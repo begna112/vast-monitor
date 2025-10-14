@@ -226,6 +226,7 @@ class DefaultService(BaseService):
                 gpus = sorted(session.get("gpus", []))
                 gh, dh, th = self._session_hourly(session)
                 started_iso = session.get("start_time")
+                contract_iso = session.get("client_end_date")
                 lines.append(f"- {sid} ({status})")
                 if gpus:
                     gr = self._current_gpu_rate(session)
@@ -246,6 +247,8 @@ class DefaultService(BaseService):
                     f"  - Earnings: {gt:.4f}$ (GPUs) + {dt:.4f}$ (disk) = {tt:.4f}$"
                 )
                 lines.append(f"  - Start: {started_iso or ''}")
+                if contract_iso:
+                    lines.append(f"  - Contract end: {contract_iso}")
         return "\n".join(lines)
 
     def _session_block(
@@ -277,6 +280,9 @@ class DefaultService(BaseService):
                 f"  - Storage: {storage_gb:.2f} GB @ {(cur_storage_rate or 0.0):.4f}$/GB/mo"
             )
         out.append(f"  - Start: {started_iso or ''}")
+        contract_iso = session.get("client_end_date")
+        if contract_iso:
+            out.append(f"  - Contract end: {contract_iso}")
         return out
 
     def _session_block_end(self, *, session: Dict[str, Any]) -> List[str]:

@@ -310,6 +310,12 @@ class DiscordService(BaseService):
                     if started_iso
                     else ""
                 )
+                contract_iso = session.get("client_end_date")
+                contract_ts = (
+                    f"{discord_ts(contract_iso, 'f')} ({discord_ts(contract_iso, 'R')})"
+                    if contract_iso
+                    else ""
+                )
                 lines.append(f"- {sid} ({status})")
                 if gpus:
                     gr = self._current_gpu_rate(session)
@@ -333,6 +339,8 @@ class DiscordService(BaseService):
                 )
                 if started:
                     lines.append(f"  - Start: {started}")
+                if contract_ts:
+                    lines.append(f"  - Contract end: {contract_ts}")
         return lines
 
     def _session_block(
@@ -370,6 +378,10 @@ class DiscordService(BaseService):
             )
         if started:
             out.append(f"  - Start: {started}")
+        contract_iso = session.get("client_end_date")
+        if contract_iso:
+            contract_ts = f"{discord_ts(contract_iso, 'f')} ({discord_ts(contract_iso, 'R')})"
+            out.append(f"  - Contract end: {contract_ts}")
         return out
 
     def _session_block_end(self, *, session: Dict[str, Any]) -> List[str]:

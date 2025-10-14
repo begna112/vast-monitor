@@ -51,7 +51,7 @@
             "rate_per_gb_month": 0.30000000000000004
           }
         ],
-        "client_end_date": null,
+        "client_end_date": "2025-09-10T12:00:00+00:00",
         "end_time": null,
         "rental_duration": null,
         "estimated_earnings": null
