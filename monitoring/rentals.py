@@ -438,6 +438,7 @@ def process_rental_changes(
     old_disk = _allocated_disk_gb(old) or 0.0
     new_disk = _allocated_disk_gb(new) or 0.0
 
+    handled_disk_releases: list[float] = []
     ended_map: Dict[str, list[int]] = {}
     for idx in ended_indices:
         sid = snapshot["gpus"].pop(str(idx), None)
@@ -519,6 +520,8 @@ def process_rental_changes(
                         disk_delta,
                         sid,
                     )
+                if storage_val:
+                    handled_disk_releases.append(storage_val)
                 session.finalize_end()
                 dur, gpu_total, storage_total, total = session.totals(session.end_time)
                 sdict = session.model_dump()
@@ -732,7 +735,15 @@ def process_rental_changes(
     try:
         disk_delta_only = new_disk - old_disk
         tol = 1.0
-        if disk_delta_only < -0.1:
+        if handled_disk_releases:
+            total_released = sum(handled_disk_releases)
+            accounted = any(abs(abs(disk_delta_only) - released) <= tol for released in handled_disk_releases)
+            accounted = accounted or abs(abs(disk_delta_only) - total_released) <= tol
+        else:
+            accounted = False
+        if accounted:
+            handled_disk_releases.clear()
+        elif disk_delta_only < -0.1:
             target_drop = abs(disk_delta_only)
             stored_sessions = [
                 (sid, sdata)
