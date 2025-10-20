@@ -35,21 +35,12 @@ def _to_float(value: object) -> Optional[float]:
     return None
 
 
-def _normalize_storage_size(value: float) -> float:
-    normalized = float(value)
-    # Vast may report storage in bytes/MB. Convert down until it is a practical GB scale.
-    while normalized > 16384:
-        normalized /= 1024.0
-    return normalized
-
-
 def _allocated_disk_gb(machine: VastMachine) -> Optional[float]:
     raw = getattr(machine, "alloc_disk_space", None)
     value = _to_float(raw)
     if value is None:
         return None
-    normalized = _normalize_storage_size(value)
-    return max(normalized, 0.0)
+    return max(float(value), 0.0)
 
 
 def _session_contracted_rate(session: object) -> Optional[float]:
@@ -192,7 +183,7 @@ def _client_storage_gb(entry: object) -> Optional[float]:
         numeric = _to_float(value)
         if numeric is None:
             continue
-        candidates.append(_normalize_storage_size(numeric))
+        candidates.append(float(numeric))
     positives = [val for val in candidates if val > 0.0]
     if positives:
         return max(positives)
