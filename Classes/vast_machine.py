@@ -16,7 +16,7 @@ class VastMachine(BaseModel):
     id: int
     machine_id: int
     hostname: str
-    geolocation: str
+    geolocation: Optional[str] = None
     timeout: int
     mobo_name: str
     num_gpus: int
