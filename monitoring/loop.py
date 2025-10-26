@@ -35,9 +35,9 @@ def get_machines(vastai, config: AppConfig, logger: logging.Logger) -> list[Vast
         
         # prefer to collect all machines and filter client-side to reduce API calls  
         raw = vastai.show_machines()
-        if len(raw["machines"]) > len(config.machine_ids):
+        if len(raw["machines"]) != len(config.machine_ids):
             raw = [vastai.show_machine(Machine=x) for x in config.machine_ids]
-            machines = [VastMachine(**item[0]) for item in raw]
+            machines = [VastMachine(**item) for item in raw]
         else:
             machines = [VastMachine(**item) for item in raw["machines"]]
             machines = [machine for machine in machines if machine.machine_id in config.machine_ids]
