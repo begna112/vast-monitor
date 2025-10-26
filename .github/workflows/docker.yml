@@ -48,11 +48,6 @@ jobs:
           echo "Ref: ${GITHUB_REF}"
           echo "SHA: ${GITHUB_SHA}"
           
-          # Always tag with 'latest' for most recent commit to main
-          tags=(
-            "ghcr.io/begna112/${IMAGE_NAME}:latest"
-          )
-          
           # Detect version tag based on event type
           # First check if version_tag was passed as workflow input (from release-please)
           version_tag="${{ inputs.version_tag }}"
@@ -68,25 +63,26 @@ jobs:
               version_tag="${{ github.event.release.tag_name }}"
             fi
             echo "Tag from release event: ${version_tag}"
-          else
-            # Fallback: try to get the latest tag
-            echo "No version from event, checking git tags:"
-            git tag --sort=-version:refname | head -5
-            version_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-            if [[ -n "${version_tag}" ]]; then
-              echo "Tag from git describe: ${version_tag}"
-            fi
           fi
           
+          # Build tags based on whether this is a release or regular commit
           if [[ -n "${version_tag}" ]]; then
-            # Strip 'v' prefix from version tag for Docker image
+            # This is a versioned release - tag with latest, stable, version, and SHA
             docker_version="${version_tag#v}"
-            tags+=("ghcr.io/begna112/${IMAGE_NAME}:${docker_version}")
-            tags+=("ghcr.io/begna112/${IMAGE_NAME}:stable")
-            echo "Adding version tag: ghcr.io/begna112/${IMAGE_NAME}:${docker_version}"
-            echo "Adding stable tag: ghcr.io/begna112/${IMAGE_NAME}:stable"
+            tags=(
+              "ghcr.io/begna112/${IMAGE_NAME}:latest"
+              "ghcr.io/begna112/${IMAGE_NAME}:stable"
+              "ghcr.io/begna112/${IMAGE_NAME}:${docker_version}"
+              "ghcr.io/begna112/${IMAGE_NAME}:${GITHUB_SHA}"
+            )
+            echo "Release build - tagging with version: ${docker_version} and SHA: ${GITHUB_SHA}"
           else
-            echo "No version tag - only tagging as 'latest'"
+            # Regular commit - tag with latest and commit SHA
+            tags=(
+              "ghcr.io/begna112/${IMAGE_NAME}:latest"
+              "ghcr.io/begna112/${IMAGE_NAME}:${GITHUB_SHA}"
+            )
+            echo "Regular commit build - tagging with SHA: ${GITHUB_SHA}"
           fi
           
           echo "Final tags:"
