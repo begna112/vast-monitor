@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.3](https://github.com/begna112/vast-monitor/compare/v1.3.2...v1.3.3) (2025-10-26)
+
+
+### Bug Fixes
+
+* **ci:** further attempts to fix docker tagging (again). ([cb4b641](https://github.com/begna112/vast-monitor/commit/cb4b641daede5b2308c93efaf43ef9dee5cd95e6))
+* **ci:** further attempts to fix docker tagging. ([94bacfe](https://github.com/begna112/vast-monitor/commit/94bacfe560899d988754e5c04a9ab00e8c58831e))
+
 ## [1.3.2](https://github.com/begna112/vast-monitor/compare/v1.3.1...v1.3.2) (2025-10-26)
 
 
