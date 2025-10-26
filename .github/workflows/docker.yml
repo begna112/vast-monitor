@@ -7,6 +7,7 @@ on:
   release:
     types: [ published ]
   workflow_dispatch:
+  workflow_call:
 
 env:
   IMAGE_NAME: vast-monitor
@@ -47,6 +48,13 @@ jobs:
             if [[ -z "${version_tag}" ]]; then
               version_tag="${{ github.event.release.tag_name }}"
             fi
+            if [[ -n "${version_tag}" ]]; then
+              tags+=("ghcr.io/begna112/${IMAGE_NAME}:${version_tag}")
+            fi
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_call" ]]; then
+            # When called from release-please, fetch the latest tag
+            git fetch --tags
+            version_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
             if [[ -n "${version_tag}" ]]; then
               tags+=("ghcr.io/begna112/${IMAGE_NAME}:${version_tag}")
             fi
