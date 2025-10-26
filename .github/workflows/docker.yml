@@ -54,8 +54,12 @@ jobs:
           )
           
           # Detect version tag based on event type
-          version_tag=""
-          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/v* ]]; then
+          # First check if version_tag was passed as workflow input (from release-please)
+          version_tag="${{ inputs.version_tag }}"
+          
+          if [[ -n "${version_tag}" ]]; then
+            echo "Tag from workflow input: ${version_tag}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/v* ]]; then
             version_tag=${GITHUB_REF#refs/tags/}
             echo "Tag from push event: ${version_tag}"
           elif [[ "${GITHUB_EVENT_NAME}" == "release" ]]; then
@@ -64,16 +68,12 @@ jobs:
               version_tag="${{ github.event.release.tag_name }}"
             fi
             echo "Tag from release event: ${version_tag}"
-          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_call" ]]; then
-            # Check if version_tag was passed as input
-            version_tag="${{ inputs.version_tag }}"
+          else
+            # Fallback: try to get the latest tag
+            echo "No version from event, checking git tags:"
+            git tag --sort=-version:refname | head -5
+            version_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
             if [[ -n "${version_tag}" ]]; then
-              echo "Tag from workflow input: ${version_tag}"
-            else
-              # Fallback: get the latest tag
-              echo "No input tag, available tags:"
-              git tag --sort=-version:refname | head -5
-              version_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
               echo "Tag from git describe: ${version_tag}"
             fi
           fi
