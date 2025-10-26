@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.1](https://github.com/begna112/vast-monitor/compare/v1.3.0...v1.3.1) (2025-10-26)
+
+
+### Bug Fixes
+
+* 0 index from troubleshooting in case where config machines &lt; all machines. ([96e4faf](https://github.com/begna112/vast-monitor/commit/96e4faf2d37bbbfc1c7adbf64ad8fc0f5bdc0454))
+* attempt to tag the docker image with version. ([d9faa1b](https://github.com/begna112/vast-monitor/commit/d9faa1ba32af36620654c2236e152aa05f8ad9f2))
+* handle case where an invalid id for the vast account is in the config. ([869e47b](https://github.com/begna112/vast-monitor/commit/869e47bff3a0bbb9d11a1e3e6124be9b01ec4af2))
+
 ## [1.3.0](https://github.com/begna112/vast-monitor/compare/v1.2.0...v1.3.0) (2025-10-20)
 
 
