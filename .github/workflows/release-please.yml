@@ -26,4 +26,6 @@ jobs:
     needs: release
     if: needs.release.outputs.release_created == 'true'
     uses: ./.github/workflows/docker.yml
+    with:
+      version_tag: ${{ needs.release.outputs.tag_name }}
     secrets: inherit
