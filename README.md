@@ -152,41 +152,94 @@ git pull --rebase
 
 ## Running with Docker
 
-Pre-built images live at `ghcr.io/begna112/vast-monitor`. Create a host directory **outside this repository** to store `config.json` and runtime files, then mount it into `/config`:
+Pre-built images are available at `ghcr.io/begna112/vast-monitor` with the following tags:
+- `:latest` – most recent commit to main (bleeding edge)
+- `:stable` – latest versioned release (recommended for production)
+- `:1.3.0`, `:1.4.0`, etc. – specific versions for pinning
+
+Create a host directory to store `config.json` and runtime files. **This can be any directory you choose** (e.g., `~/vastmonitor-config`, `/opt/vast-monitor`, `C:\vastmonitor`, etc.). The container will mount this directory to `/config` and needs **read/write permissions** to create snapshots, logs, and track state.
+
+**Example setup:**
 
 ```bash
+# Create your config directory (use any path you prefer)
 mkdir -p ~/vastmonitor-config
+
+# Copy your config file
 cp /path/to/config.json ~/vastmonitor-config/config.json
-docker pull ghcr.io/begna112/vast-monitor:latest
+
+# Run the container with stable tag (recommended)
+docker pull ghcr.io/begna112/vast-monitor:stable
 docker run --rm \
   -v ~/vastmonitor-config:/config \
-  ghcr.io/begna112/vast-monitor:latest
+  ghcr.io/begna112/vast-monitor:stable
 ```
 
-- `/config/config.json` must exist and mirror the sample schema.
-- Any state or log files remain inside the mounted directory.
-- Override the config path with `--config /config/other.json` if you need a different filename.
+**Important notes:**
+- The host directory you mount (e.g., `~/vastmonitor-config`) can be **any path** on your system
+- Docker must have **read and write permissions** to this directory to create logs, snapshots, and track rental state
+- `/config/config.json` must exist inside the mounted directory and follow the sample schema
+- Runtime files (`machine_snapshots/`, `rental_snapshot.json`, `rental_logs/`, `vast_monitor.log`) will be created automatically in the mounted directory
+- Override the config filename with `--config /config/other.json` if needed
+
+**Using different tags:**
+```bash
+# Latest stable release (recommended)
+docker run --rm -v ~/vastmonitor-config:/config ghcr.io/begna112/vast-monitor:stable
+
+# Bleeding edge (most recent commit)
+docker run --rm -v ~/vastmonitor-config:/config ghcr.io/begna112/vast-monitor:latest
+
+# Specific version
+docker run --rm -v ~/vastmonitor-config:/config ghcr.io/begna112/vast-monitor:1.3.0
+```
 
 ---
 
 ## Running with Docker Compose (multiple configs)
 
-`compose.yaml` demonstrates running several monitors. Map each container to a separate host directory containing its own `config.json`:
+`compose.yaml` demonstrates running multiple monitors simultaneously, each with its own configuration. Create a separate host directory for each monitor (these can be **any paths** you choose), then map them in the compose file.
+
+**Example setup:**
+
+```bash
+# Create directories for each monitor (use any paths you prefer)
+mkdir -p ~/vastmonitor-config-primary
+mkdir -p ~/vastmonitor-config-secondary
+
+# Copy config files to each directory
+cp /path/to/config1.json ~/vastmonitor-config-primary/config.json
+cp /path/to/config2.json ~/vastmonitor-config-secondary/config.json
+```
+
+**Update `compose.yaml`:**
 
 ```yaml
 services:
   monitor_primary:
-    image: ghcr.io/begna112/vast-monitor:latest
+    image: ghcr.io/begna112/vast-monitor:stable  # Use :stable, :latest, or specific version
     volumes:
-      - ~/vastmonitor-config-primary:/config
+      - ~/vastmonitor-config-primary:/config     # Map your first config directory
+    restart: unless-stopped
+
+  monitor_secondary:
+    image: ghcr.io/begna112/vast-monitor:stable
+    volumes:
+      - ~/vastmonitor-config-secondary:/config   # Map your second config directory
+    restart: unless-stopped
 ```
 
-Start the stack:
+**Start the stack:**
 ```bash
 docker compose up -d
 ```
 
-To monitor additional machines, create more directories (e.g. `~/vastmonitor-config-secondary/`), drop distinct configs there, and uncomment/edit the extra services in `compose.yaml` before re-running `docker compose up -d`.
+**Important notes:**
+- Each service needs its own host directory with a `config.json` file
+- Directory paths can be **any location** on your system (absolute or relative to the compose file)
+- Each directory needs **read/write permissions** for Docker to create logs and snapshots
+- You can run as many monitors as needed by adding more services to the compose file
+- Use `:stable` tag for production deployments or `:latest` for bleeding edge
 
 ---
 

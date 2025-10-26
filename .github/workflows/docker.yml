@@ -8,6 +8,11 @@ on:
     types: [ published ]
   workflow_dispatch:
   workflow_call:
+    inputs:
+      version_tag:
+        description: 'Version tag to use for Docker image'
+        required: false
+        type: string
 
 env:
   IMAGE_NAME: vast-monitor
@@ -21,6 +26,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -36,29 +44,54 @@ jobs:
         id: meta
         shell: bash
         run: |
+          echo "Event name: ${GITHUB_EVENT_NAME}"
+          echo "Ref: ${GITHUB_REF}"
+          echo "SHA: ${GITHUB_SHA}"
+          
+          # Always tag with 'latest' for most recent commit to main
           tags=(
             "ghcr.io/begna112/${IMAGE_NAME}:latest"
-            "ghcr.io/begna112/${IMAGE_NAME}:${GITHUB_SHA}"
           )
+          
+          # Detect version tag based on event type
+          version_tag=""
           if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/v* ]]; then
             version_tag=${GITHUB_REF#refs/tags/}
-            tags+=("ghcr.io/begna112/${IMAGE_NAME}:${version_tag}")
+            echo "Tag from push event: ${version_tag}"
           elif [[ "${GITHUB_EVENT_NAME}" == "release" ]]; then
             version_tag=${GITHUB_REF#refs/tags/}
             if [[ -z "${version_tag}" ]]; then
               version_tag="${{ github.event.release.tag_name }}"
             fi
-            if [[ -n "${version_tag}" ]]; then
-              tags+=("ghcr.io/begna112/${IMAGE_NAME}:${version_tag}")
-            fi
+            echo "Tag from release event: ${version_tag}"
           elif [[ "${GITHUB_EVENT_NAME}" == "workflow_call" ]]; then
-            # When called from release-please, fetch the latest tag
-            git fetch --tags
-            version_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            # Check if version_tag was passed as input
+            version_tag="${{ inputs.version_tag }}"
             if [[ -n "${version_tag}" ]]; then
-              tags+=("ghcr.io/begna112/${IMAGE_NAME}:${version_tag}")
+              echo "Tag from workflow input: ${version_tag}"
+            else
+              # Fallback: get the latest tag
+              echo "No input tag, available tags:"
+              git tag --sort=-version:refname | head -5
+              version_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+              echo "Tag from git describe: ${version_tag}"
             fi
           fi
+          
+          if [[ -n "${version_tag}" ]]; then
+            # Strip 'v' prefix from version tag for Docker image
+            docker_version="${version_tag#v}"
+            tags+=("ghcr.io/begna112/${IMAGE_NAME}:${docker_version}")
+            tags+=("ghcr.io/begna112/${IMAGE_NAME}:stable")
+            echo "Adding version tag: ghcr.io/begna112/${IMAGE_NAME}:${docker_version}"
+            echo "Adding stable tag: ghcr.io/begna112/${IMAGE_NAME}:stable"
+          else
+            echo "No version tag - only tagging as 'latest'"
+          fi
+          
+          echo "Final tags:"
+          printf '%s\n' "${tags[@]}"
+          
           {
             printf 'tags<<EOF\n'
             printf '%s\n' "${tags[@]}"
