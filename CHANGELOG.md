@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/begna112/vast-monitor/compare/v1.3.1...v1.3.2) (2025-10-26)
+
+
+### Bug Fixes
+
+* **ci:** trigger Docker build with version tags on release-please merge ([cd956bd](https://github.com/begna112/vast-monitor/commit/cd956bdd9e6481719f74264859abdc17026b400a))
+
 ## [1.3.1](https://github.com/begna112/vast-monitor/compare/v1.3.0...v1.3.1) (2025-10-26)
 
 
